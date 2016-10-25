@@ -1,0 +1,36 @@
+#include "Event.h"
+
+Event::Event(){
+  N_PMT = 32;
+  N_samples = 1500;
+  hReadOut = new TH2D("hReadOut","hReadOut;ticks;PMT",N_samples,0,Nsamples,N_PMT,0,N_PMT);
+  hWF = new TH1D("hWF","hWF;ticks;ADC code",N_samples,0,N_samples);
+  Run = -1;
+  SubRun = -1;
+  EvtNumber = -1;
+}
+
+Event::Event(int run, int subrun, int evtnum, TH2D* hreadOut){
+  N_PMT = 32;
+  N_samples = 1500;
+  Run = run;
+  SubRun = subrun;
+  EvtNumber = evtnum;
+  hReadOut = hreadOut;
+  hReadOut->SetNameTitle("hReadOut",Form("hReadOut_%d_%d_%d;ticks;PMT",Run, SubRun, EvtNumber));
+  hWF = new TH1D("hWF","hWF",N_samples,0,N_samples);
+}
+
+Event::~Event(){
+  hReadOut->Delete();
+  hWF->Delete();
+}
+
+TH1D* Event::GetWaveForm(int PMTnum){
+  hWF = hReadOut->ProjectionX(Form("hWF_%d",PMTnum),PMTnum+1);
+  return hWF;
+}
+
+TH2D* Event::GetFullReadOut(){
+  return hReadOut;
+}

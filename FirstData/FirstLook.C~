@@ -1,0 +1,312 @@
+#include "util.h"
+
+TCanvas *cReadOut = new TCanvas("cReadOut","cReadOut",800,600);
+TCanvas *cParameters = new TCanvas("cParameters","cParameters",800,600);
+TH1D *hAmplitude = new TH1D("hAmplitude","hAmplitude",100,0,100);
+TH1D *hBaseline = new TH1D("hBaseline","hBaseline",100,2040,2060);
+TH1D *hSigma_1 = new TH1D("hSigma_1","hSigma_1",100,0,5);
+TH1D *hSigma_2 = new TH1D("hSigma_2","hSigma_2",100,0,5);
+TH1D *hTimes = new TH1D("hTimes","hTimes",100,0,1500);
+
+void FirstLook(){
+  cout << "Hello World" << endl;
+  cParameters->Divide(2,2);
+}
+
+TTree* GetOpticalInfo(){
+  TTree *T;
+  TFile *fIN = TFile::Open("rawdigits.root","READ");
+  TDirectory *dir = fIN->GetDirectory("rawdigitwriter");
+  T = (TTree*)dir->Get("OpDetWaveforms");
+  return T;
+}
+
+TH1D* Get1WF(int RunNum = 8336, int SubRun = 383, int evtnum = 17801, int PMTnum = 1){
+
+  TTree *T = GetOpticalInfo();
+
+  Int_t           run;
+  Int_t           subrun;
+  Int_t           event;
+  Int_t           opcrate;
+  Int_t           opslot;
+  Int_t           opfemch;
+  Int_t           frame;
+  Int_t           sample;
+  Int_t           readoutch;
+  Int_t           category;
+  Int_t           gaintype;
+  Double_t        timestamp;
+  Double_t        trig_timestamp;
+  Double_t        beam_timestamp;
+  std::vector<short>   *adcs = 0;
+
+  // Set branch addresses.
+  T->SetBranchAddress("run",&run);
+  T->SetBranchAddress("subrun",&subrun);
+  T->SetBranchAddress("event",&event);
+  T->SetBranchAddress("opcrate",&opcrate);
+  T->SetBranchAddress("opslot",&opslot);
+  T->SetBranchAddress("opfemch",&opfemch);
+  T->SetBranchAddress("frame",&frame);
+  T->SetBranchAddress("sample",&sample);
+  T->SetBranchAddress("readoutch",&readoutch);
+  T->SetBranchAddress("category",&category);
+  T->SetBranchAddress("gaintype",&gaintype);
+  T->SetBranchAddress("timestamp",&timestamp);
+  T->SetBranchAddress("trig_timestamp",&trig_timestamp);
+  T->SetBranchAddress("beam_timestamp",&beam_timestamp);
+  T->SetBranchAddress("adcs", &adcs);
+
+  TH1D *hWF = new TH1D("hWF","hWF",1500,0,1500);
+  for(int i = 0;i<T->GetEntries();i++){
+    //adcs.clear();
+    T->GetEntry(i);
+    //if(run != RunNum)continue;
+    //if(subrun != SubRun)continue;
+    if(readoutch != PMTnum)continue;
+    if(event !=  evtnum) continue;
+    if(adcs->size()<50) continue;
+    
+    for(int j = 0;j<adcs->size();j++){
+      hWF->SetBinContent(j+1,adcs->at(j)+0.5);
+      hWF->SetBinError(j+1,0.5);
+    }
+  }
+  return hWF;
+  
+}
+
+void LookAt1WF(int RunNum = 8336, int SubRun = 383, int evtnum = 17801, int PMTnum = 1){
+  TCanvas *cReadOut = new TCanvas();
+  Get1WF(RunNum, SubRun, evtnum,PMTnum)->Draw();
+}
+
+void LookAt1Evt(int evtnum = 17801){
+
+  TTree *T = GetOpticalInfo();
+
+  Int_t           run;
+  Int_t           subrun;
+  Int_t           event;
+  Int_t           opcrate;
+  Int_t           opslot;
+  Int_t           opfemch;
+  Int_t           frame;
+  Int_t           sample;
+  Int_t           readoutch;
+  Int_t           category;
+  Int_t           gaintype;
+  Double_t        timestamp;
+  Double_t        trig_timestamp;
+  Double_t        beam_timestamp;
+  std::vector<short>   *adcs = 0;
+
+  // Set branch addresses.
+  T->SetBranchAddress("run",&run);
+  T->SetBranchAddress("subrun",&subrun);
+  T->SetBranchAddress("event",&event);
+  T->SetBranchAddress("opcrate",&opcrate);
+  T->SetBranchAddress("opslot",&opslot);
+  T->SetBranchAddress("opfemch",&opfemch);
+  T->SetBranchAddress("frame",&frame);
+  T->SetBranchAddress("sample",&sample);
+  T->SetBranchAddress("readoutch",&readoutch);
+  T->SetBranchAddress("category",&category);
+  T->SetBranchAddress("gaintype",&gaintype);
+  T->SetBranchAddress("timestamp",&timestamp);
+  T->SetBranchAddress("trig_timestamp",&trig_timestamp);
+  T->SetBranchAddress("beam_timestamp",&beam_timestamp);
+  T->SetBranchAddress("adcs", &adcs);
+
+  int tick = 0;
+  TCanvas *cReadOutEvt = new TCanvas();
+  bool cont = false;
+  TH2D *hWF = new TH2D("hWF","hWF;t;PMT",1500,0,1500,35,0,35);
+  TH1D *hTimeStamp = new TH1D("hTimeStamp","hTimeStamp",1000,10,0);
+  for(int i = 0;i<T->GetEntries();i++){
+    //adcs.clear();
+    T->GetEntry(i);
+    if(event !=  evtnum) continue;
+    if(adcs->size()<60) continue;
+    hTimeStamp->Fill(beam_timestamp);
+
+    cout << adcs->size() << endl;
+    for(int j = 0;j<adcs->size();j++){
+      hWF->SetBinContent(j+1,opfemch,adcs->at(j));
+    }
+  }
+  hWF->Draw("colz");
+  cReadOutEvt->SaveAs(Form("PMTReadout_run%d_%d_evt%08d.pdf",run,subrun,evtnum));
+
+}
+
+void ShowEvents(){
+  TTree *T = GetOpticalInfo();
+  int event;
+  int prevEvt;
+  T->SetBranchAddress("event",&event);
+
+  for(int i = 0;i<10000/*;i<T->GetEntries()*/;i++){
+    T->GetEntry(i);
+    if(i>0 && event == prevEvt)continue;
+    else if(i>0 && event != prevEvt){
+      cout << event << endl;
+      prevEvt = event;
+      LookAt1Evt(event);
+    }
+    else{
+      cout << event << endl;
+      prevEvt =event;
+      LookAt1Evt(event);
+    }
+  }
+}
+
+std::vector<double> GetNPulses(TH1D *hWF){
+  double baseline = 2050;
+  double threshold = 2052;
+  std::vector<double> Times;
+  double Tstart(-1),Tmax(-1),Tmean;
+  for(int i = 0;i<hWF->GetNbinsX();i++){
+    if(Tstart == -1){
+      if(hWF->GetBinContent(i+1) > threshold && hWF->GetBinContent(i) <= threshold){
+	Tstart = i;
+      }
+    }
+    else{
+      if(hWF->GetBinContent(i+1) < threshold && hWF->GetBinContent(i) >= threshold){
+	  Tmax = i;
+	  Tmean = 0.5*(Tstart+Tmax);
+	  Times.push_back(Tmean);
+	  Tstart = -1;
+	}
+    }
+  }
+  cout << "Found " << Times.size() << " peaks" << endl;
+  return Times;
+}
+
+
+void FitSPE(int RunNum = 8336, int SubRun = 383, int Evt = 17801, int Npmt = 0){
+  TF1 *fSPE = new TF1("fSPE",SPEshape,0,1500,5);
+  TH1D *hWF = Get1WF(RunNum,SubRun,Evt,Npmt);
+  std::vector<double> Times = GetNPulses(hWF);
+  cReadOut->cd();
+  hWF->Draw();
+  for(int i = 0;i<Times.size();i++){
+    cout << "Peak found at " << Times.at(i) << endl;
+    fSPE->SetParameters(2050,20,Times.at(i),1,3);
+    if(i==0){
+      hWF->Fit("fSPE","rl","",0,min(Times.at(i)+100,0.5*(Times.at(i)+Times.at(i+1))));
+    }
+    else if(i == Times.size()-1){
+      hWF->Fit("fSPE","rl","",0.5*(Times.at(i-1)+Times.at(i)),Times.at(i)+100);
+    }
+    else{
+      hWF->Fit("fSPE","rl","",0.5*(Times.at(i-1)+Times.at(i)),0.5*(Times.at(i)+Times.at(i+1)));
+    }
+    hAmplitude->Fill(fSPE->GetParameter(1));
+    hBaseline->Fill(fSPE->GetParameter(0));
+    hTimes->Fill(fSPE->GetParameter(2));
+    hSigma_1->Fill(fSPE->GetParameter(3));
+    hSigma_2->Fill(fSPE->GetParameter(4));
+    cout << endl;
+    cout << fSPE->GetProb() << endl;
+    cout << endl;
+  }
+
+  cParameters->cd(1);
+  hBaseline->Draw();
+
+  cParameters->cd(2);
+  hAmplitude->Draw();
+
+  cParameters->cd(3);
+  hTimes->Draw();
+
+  cParameters->cd(4);
+  hSigma_1->Draw();
+  hSigma_2->Draw("same");
+
+  cParameters->Modified();
+  cParameters->Update();
+}
+
+void FitSPE1fcn(int RunNum = 8336, int SubRun = 383, int Evt = 17801, int Npmt = 0){
+  TH1D *hWF = Get1WF(RunNum,SubRun,Evt,Npmt);
+  std::vector<double> Times = GetNPulses(hWF);
+  cReadOut->cd();
+  hWF->Draw();
+  if(Times.size()>50)return;
+  TF1 *fWF = GetfWF(Times.size());
+  fWF->FixParameter(0,Times.size());
+  fWF->SetParameter(1,2049);
+  fWF->SetParName(0,"NPE");
+  fWF->SetParName(1,"baseline");
+  fWF->SetNpx(3000);
+  for(int i = 0;i<Times.size();i++){
+    fWF->SetParameter(4*i+2, 20);                               // peak amplitude
+    fWF->SetParName(  4*i+2, Form("Amplitude_%d",i+1));         //
+    fWF->SetParLimits(4*i+2, 0, 3000);                          //
+
+    fWF->SetParameter(4*i+3, Times.at(i));                      // peak time
+    fWF->SetParName(  4*i+3, Form("Time_%d", i+1));             //
+    fWF->SetParLimits(4*i+3, Times.at(i) - 10, Times.at(i)+ 20);//
+
+    fWF->SetParameter(4*i+4, 1.5);                                // peak rise time
+    fWF->SetParName(  4*i+4, Form("#sigma_Rise_%d", i+1));      //
+    fWF->SetParLimits(4*i+4, 0.5, 3);                              //
+
+    fWF->SetParameter(4*i+5, 3.4);                                // peak fall time
+    fWF->SetParName(  4*i+5, Form("#sigma_Fall_%d", i+1));      //
+    fWF->SetParLimits(4*i+5, 2,10);                             //
+  }
+
+  cReadOut->cd();
+  hWF->Fit("fWF","rl","",0,1500);
+  cReadOut->Modified();
+  cReadOut->Update();
+  //show parameters in histograms
+  hBaseline->Fill(fWF->GetParameter(1));
+  for(int i = 0;i<Times.size();i++){
+    hAmplitude->Fill(fWF->GetParameter(4*i+2));
+    hTimes->Fill(fWF->GetParameter(4*i+3));
+    hSigma_1->Fill(fWF->GetParameter(4*i+4));
+    hSigma_2->Fill(fWF->GetParameter(4*i+5));
+  }
+
+  hSigma_1->SetLineColor(2);
+  hSigma_1->SetFillColor(2);
+  hSigma_2->SetLineColor(1);
+  hSigma_2->SetFillColor(1);
+
+  cParameters->cd(1);
+  hBaseline->Draw();
+
+  cParameters->cd(2);
+  hAmplitude->Draw();
+
+  cParameters->cd(3);
+  hTimes->Draw();
+
+  cParameters->cd(4);
+  hSigma_1->Draw();
+  hSigma_2->Draw("same");
+
+  cParameters->Modified();
+  cParameters->Update();
+}
+
+
+void FitPEEvt(int RunNum = 8336, int SubRun = 383, int Evt = 17801){
+  for(int i = 0;i<32;i++){
+    cout << endl;
+    cout << endl;
+    cout << i << endl;
+    cout << endl;
+    cout << endl;
+    if(RunNum == 8336 && SubRun == 383 && Evt == 17801 && i == 17)continue;
+    FitSPE1fcn(RunNum,SubRun,Evt,i);
+  }
+}

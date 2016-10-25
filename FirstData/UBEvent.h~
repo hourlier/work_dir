@@ -1,0 +1,34 @@
+#ifndef DEF_UBEVENT
+#define DEF_UBEVENT
+
+#include "TH1D.h"
+#include "TH2D.h"
+
+class uBEvent
+{
+ public:
+  
+  uBEvent();
+  uBEvent(int run, int subrun, int evtnum, TH2D* hreadOut);
+  ~uBEvent();
+
+  void SetFullReadOut(TH2D *h);
+  void SetRunNumber(Int_t run);
+  void SetSubRunNumber(Int_t subrun);
+  void SetEvtNumber(Int_t evtnum);
+
+  TH1D* GetWaveForm(int PMTnum) const;
+  TH2D* GetFullReadOut() const;
+  Int_t GetEvtNumber() const;
+  Int_t GetRunNumber() const;
+  
+ private:
+  int Run;
+  int SubRun;
+  int EvtNumber;
+  int N_PMT;
+  int N_samples;
+  TH2D* hReadOut;
+};
+
+#endif

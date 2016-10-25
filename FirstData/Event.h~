@@ -1,0 +1,17 @@
+#ifndef DEF_EVENT
+#define DEF_EVENT
+
+class Event
+{
+ public:
+  
+  TH1D* GetWaveForm(int PMTnum);
+  TH1D* GetFullReadOut();
+  
+ private:
+  TH2D* hReadOut;
+  TH1D* hWF;
+  int   Npmt;
+};
+
+#endif
